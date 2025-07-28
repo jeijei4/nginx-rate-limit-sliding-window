@@ -1,53 +1,54 @@
-# nginx-rate-limit-sliding-window
-Nginx rate limit con algoritmo de Ventana Deslizante (Sliding Window).
+# Nginx rate limit con algoritmo de Ventana Deslizante (Sliding Window).
+
+### 1. Algoritmo de Ventana Deslizante
+
+Utiliza `limit_req` con `burst` y `nodelay` para simular el comportamiento de ventana deslizante.
+El parámetro `burst` permite acumular requests que se procesan inmediatamente con `nodelay`.
+Esto crea un efecto similar a una ventana deslizante donde los requests se van "recargando" gradualmente.
+
+### 2. Headers personalizados en error 429
+
+`X-RateLimit-Remaining:` Indica cuántas peticiones quedan disponibles (0 cuando se alcanza el límite).
+`X-RateLimit-Policy:` Describe la política de rate limiting aplicada (ej: "100 requests per minute, sliding window").
+`Retry-After:` Header adicional que indica cuándo reintentar (60 segundos).
+
+### 3. Zonas de rate limiting diferenciadas
+
+<b>General:</b> 300 requests/minuto para navegación normal.
+
+<b>API:</b> 100 requests/minuto para endpoints de API.
+
+<b>Login:</b> 5 requests/minuto para prevenir ataques de fuerza bruta.
 
 
-1. Algoritmo de Ventana Deslizante
+### 4. Manejo personalizado del error 429
 
-Utiliza limit_req con burst y nodelay para simular el comportamiento de ventana deslizante
-El parámetro burst permite acumular requests que se procesan inmediatamente con nodelay
-Esto crea un efecto similar a una ventana deslizante donde los requests se van "recargando" gradualmente
+Respuesta JSON estructurada con información del error.
 
-2. Headers personalizados en error 429
+Headers consistentes usando `always` para garantizar su presencia.
 
-X-RateLimit-Remaining: Indica cuántas peticiones quedan disponibles (0 cuando se alcanza el límite)
-X-RateLimit-Policy: Describe la política de rate limiting aplicada (ej: "100 requests per minute, sliding window")
-Retry-After: Header adicional que indica cuándo reintentar (60 segundos)
+Información clara sobre la política aplicada.
 
-3. Zonas de rate limiting diferenciadas
-
-General: 300 requests/minuto para navegación normal
-API: 100 requests/minuto para endpoints de API
-Login: 5 requests/minuto para prevenir ataques de fuerza bruta
-
-4. Manejo personalizado del error 429
-
-Respuesta JSON estructurada con información del error
-Headers consistentes usando always para garantizar su presencia
-Información clara sobre la política aplicada
-
-5. Configuración de Burst
+### 5. Configuración de Burst
 
 General: burst=50 (permite ráfagas de hasta 50 requests)
 API: burst=20 (ráfagas más pequeñas para APIs)
 Login: burst=2 (muy restrictivo para seguridad)
 
-Cómo funciona el sliding window:
+### Cómo funciona el sliding window:
 
-Cada IP tiene un "bucket" que se llena a la velocidad definida (rate)
-El burst define cuántos requests se pueden acumular
-Con nodelay, los requests se procesan inmediatamente si hay espacio en el bucket
-El bucket se va recargando continuamente a la velocidad especificada
-Esto crea un efecto de ventana deslizante donde los límites se van renovando gradualmente
+Cada IP tiene un "bucket" que se llena a la velocidad definida (rate).
 
-Para aplicar esta configuración:
+El `burst` define cuántos requests se pueden acumular.
 
-Guarda el archivo como /etc/nginx/sites-available/cms
-Crea un enlace simbólico: ln -s /etc/nginx/sites-available/cms /etc/nginx/sites-enabled/
-Prueba la configuración: nginx -t
-Recarga Nginx: systemctl reload nginx
+Con `nodelay`, los requests se procesan inmediatamente si hay espacio en el bucket.
 
-Los headers X-RateLimit-Remaining y X-RateLimit-Policy aparecerán tanto en respuestas exitosas como en los errores 429, proporcionando transparencia completa sobre el estado del rate limiting.
+El bucket se va recargando continuamente a la velocidad especificada.
+
+Esto crea un efecto de ventana deslizante donde los límites se van renovando gradualmente.
+
+
+#### Los headers `X-RateLimit-Remaining` y `X-RateLimit-Policy` aparecerán tanto en respuestas exitosas como en los errores 429, proporcionando transparencia completa sobre el estado del rate limiting.
 
 ```nginx
 # Nginx configuration for PHP CMS with sliding window rate limiting
@@ -278,3 +279,12 @@ server {
     return 301 https://cms.example.com$request_uri;
 }
 ```
+
+
+
+## Para aplicar esta configuración:
+
+Guarda el archivo como /etc/nginx/sites-available/cms
+Crea un enlace simbólico: ln -s /etc/nginx/sites-available/cms /etc/nginx/sites-enabled/
+Prueba la configuración: nginx -t
+Recarga Nginx: systemctl reload nginx
